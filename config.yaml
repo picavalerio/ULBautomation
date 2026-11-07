@@ -1,17 +1,37 @@
-# Regole modificabili: non inserire qui username o password.
-timezone: Europe/Brussels
-university: ULB
-course: Volleyball
+timezone: "Europe/Brussels"
 
-booking:
-  enabled: false          # lascia false finché non completiamo i test
-  dry_run: true            # true = non clicca mai su BOOK
-  weekday: Thursday        # Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday
-  start_time: "19:00"
-  end_time: "20:00"
-  level: "Débutants"       # lascia "" se non è un criterio
-  campus: ""               # facoltativo
-  location: ""             # es. Terrain 1; facoltativo
+portal:
+  base_url: "https://nova-sport-v1-web.vercel.app"
+  bookings_path: "/student/bookings"
+  facility_section: "Book a Facility"
+  university: "ULB"
+  timeslot_section: "Book a Timeslot"
+
+target:
+  sport: "Volleyball"
+
+  # La descrizione deve corrispondere esattamente.
+  programme_description: "Programme Solbosch"
+
+  excluded_programmes:
+    - "Personnel Programme Solbosch"
+    - "Erasme"
+
+  weekday: "Thursday"
+
+  course_name: "H2 : Terrain 2/intermediaires"
+
+  time_slot: "12:00-13:00"
+
+schedule:
   check_time: "08:01"
   search_window_minutes: 5
+
+safety:
+  enabled: false
+  dry_run: true
   book_only_first_match: true
+
+notifications:
+  email_enabled: false
+  email_to: ""
