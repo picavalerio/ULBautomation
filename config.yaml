@@ -1,0 +1,17 @@
+# Regole modificabili: non inserire qui username o password.
+timezone: Europe/Brussels
+university: ULB
+course: Volleyball
+
+booking:
+  enabled: false          # lascia false finché non completiamo i test
+  dry_run: true            # true = non clicca mai su BOOK
+  weekday: Thursday        # Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday
+  start_time: "19:00"
+  end_time: "20:00"
+  level: "Débutants"       # lascia "" se non è un criterio
+  campus: ""               # facoltativo
+  location: ""             # es. Terrain 1; facoltativo
+  check_time: "08:01"
+  search_window_minutes: 5
+  book_only_first_match: true
