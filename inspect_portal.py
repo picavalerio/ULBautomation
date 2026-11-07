@@ -3,6 +3,7 @@ import sys
 from playwright.sync_api import sync_playwright
 
 BASE_URL = "https://nova-sport-v1-web.vercel.app"
+ULB_PATH = "/student/bookings/46e3df5e-ce7e-4c96-b26b-2b34211001a7"
 
 
 def main():
@@ -19,92 +20,79 @@ def main():
         page.set_default_timeout(15000)
 
         try:
+            # Login
             page.goto(BASE_URL + "/login", wait_until="domcontentloaded")
             page.locator("#email").fill(username)
             page.locator("#password").fill(password)
-            page.get_by_role("button", name="Sign In", exact=True).click()
+
+            page.get_by_role(
+                "button", name="Sign In", exact=True
+            ).click()
 
             page.wait_for_url("**/student/bookings", timeout=20000)
-            page.wait_for_timeout(2000)
+            page.wait_for_timeout(1500)
 
             print("LOGIN RIUSCITO")
-            print("URL:", page.url)
 
-            heading = page.get_by_text("Book a Facility", exact=True).first
+            # Individuazione e apertura del collegamento ULB
+            ulb_link = page.locator(f'a[href="{ULB_PATH}"]')
 
-            if heading.count() == 0:
-                print("Sezione Book a Facility non trovata.")
+            if ulb_link.count() != 1:
+                print("ERRORE: collegamento ULB non identificato univocamente.")
                 sys.exit(2)
 
-            print("\n=== STRUTTURA DELLA SEZIONE ===")
+            print("Collegamento ULB identificato.")
+            ulb_link.click()
 
-            structure = heading.evaluate("""
-                el => {
-                    const result = [];
-                    let current = el;
+            page.wait_for_timeout(3000)
 
-                    for (let i = 0; i < 5 && current; i++) {
-                        result.push({
-                            level: i,
-                            tag: current.tagName,
-                            id: current.id || '',
-                            className: String(current.className || '').slice(0, 200),
-                            role: current.getAttribute('role') || '',
-                            controls: Array.from(
-                                current.querySelectorAll(
-                                    'button, a, [role="button"]'
-                                )
-                            ).map(item => ({
-                                tag: item.tagName,
-                                text: (item.innerText || '').trim().slice(0, 100),
-                                ariaLabel: item.getAttribute('aria-label') || '',
-                                href: item.getAttribute('href') || '',
-                                disabled: item.disabled || false
-                            })).slice(0, 30)
-                        });
+            print("\n=== PAGINA ULB ===")
+            print("URL:", page.url)
+            print("Titolo:", page.title())
 
-                        current = current.parentElement;
-                    }
+            print("\n=== TESTO VISIBILE ===")
+            print(page.locator("body").inner_text()[:6000])
 
-                    return result;
-                }
+            print("\n=== INTESTAZIONI ===")
+            for heading in page.locator("h1, h2, h3, h4").all_inner_texts():
+                print(repr(heading.strip()))
+
+            print("\n=== PULSANTI VISIBILI ===")
+            for button in page.locator("button:visible").all_inner_texts():
+                print(repr(button.strip()))
+
+            print("\n=== LINK VISIBILI ===")
+            links = page.locator("a:visible").evaluate_all("""
+                elements => elements.map(el => ({
+                    text: (el.innerText || '').trim(),
+                    path: (() => {
+                        try {
+                            return new URL(el.href).pathname;
+                        } catch {
+                            return '';
+                        }
+                    })()
+                }))
             """)
 
-            for item in structure:
-                print(item)
+            for link in links:
+                print(link)
 
-            print("\n=== ELEMENTI ESATTI CON TESTO ULB ===")
+            print("\n=== ELEMENTI CON TESTO VOLLEYBALL ===")
+            volleyball = page.get_by_text("Volleyball", exact=True)
 
-            ulb_elements = page.get_by_text("ULB", exact=True)
-
-            for i in range(ulb_elements.count()):
-                item = ulb_elements.nth(i)
-
-                info = item.evaluate("""
-                    el => {
-                        const parent = el.parentElement;
-                        return {
-                            tag: el.tagName,
-                            className: String(el.className || ''),
-                            parentTag: parent ? parent.tagName : '',
-                            parentClass: parent
-                                ? String(parent.className || '').slice(0, 200)
-                                : '',
-                            clickableAncestor: (() => {
-                                const c = el.closest(
-                                    'button, a, [role="button"]'
-                                );
-                                return c ? {
-                                    tag: c.tagName,
-                                    text: (c.innerText || '').trim().slice(0, 100),
-                                    href: c.getAttribute('href') || ''
-                                } : null;
-                            })()
-                        };
-                    }
-                """)
-
-                print(info)
+            for i in range(volleyball.count()):
+                item = volleyball.nth(i)
+                print(item.evaluate("""
+                    el => ({
+                        tag: el.tagName,
+                        className: String(el.className || ''),
+                        parentTag: el.parentElement?.tagName || '',
+                        parentClass: String(
+                            el.parentElement?.className || ''
+                        ).slice(0, 200)
+                    })
+                """))
 
         finally:
             browser.close()
