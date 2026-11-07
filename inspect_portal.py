@@ -1,15 +1,8 @@
 import os
 import sys
-from urllib.parse import urlparse
-
-from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import sync_playwright
 
 BASE_URL = "https://nova-sport-v1-web.vercel.app"
-
-
-def safe_path(url):
-    parsed = urlparse(url)
-    return parsed.path
 
 
 def main():
@@ -17,7 +10,7 @@ def main():
     password = os.getenv("NOVA_PASSWORD")
 
     if not username or not password:
-        print("Credenziali mancanti nei GitHub Secrets.")
+        print("Credenziali mancanti.")
         sys.exit(1)
 
     with sync_playwright() as p:
@@ -25,64 +18,93 @@ def main():
         page = browser.new_page()
         page.set_default_timeout(15000)
 
-        # Diagnostica: registriamo solo URL senza query string,
-        # codici HTTP e messaggi tecnici. Mai payload o credenziali.
-        page.on("response", lambda response: print(
-            f"HTTP {response.status} {safe_path(response.url)}"
-            if any(word in response.url.lower()
-                   for word in ["auth", "login", "session", "sign"])
-            else None
-        ))
-
-        page.on("requestfailed", lambda request: print(
-            "RICHIESTA FALLITA:",
-            safe_path(request.url),
-            request.failure
-        ))
-
-        page.on("pageerror", lambda error: print(
-            "ERRORE JAVASCRIPT:", str(error)[:500]
-        ))
-
-        page.on("console", lambda message: print(
-            "CONSOLE ERROR:", message.text[:500]
-            if message.type == "error" else ""
-        ) if message.type == "error" else None)
-
         try:
             page.goto(BASE_URL + "/login", wait_until="domcontentloaded")
-
             page.locator("#email").fill(username)
             page.locator("#password").fill(password)
+            page.get_by_role("button", name="Sign In", exact=True).click()
 
-            print("Invio del modulo...")
-            page.get_by_role(
-                "button", name="Sign In", exact=True
-            ).click()
+            page.wait_for_url("**/student/bookings", timeout=20000)
+            page.wait_for_timeout(2000)
 
-            page.wait_for_timeout(7000)
-
-            print("\n=== RISULTATO ===")
+            print("LOGIN RIUSCITO")
             print("URL:", page.url)
-            print("Titolo:", page.title())
 
-            print("\n=== TESTO VISIBILE DELLA PAGINA ===")
-            print(page.locator("body").inner_text()[:4000])
+            heading = page.get_by_text("Book a Facility", exact=True).first
 
-            print("\n=== CAMPI VISIBILI ===")
-            fields = page.locator("input:visible").evaluate_all("""
-                elements => elements.map(el => ({
-                    type: el.type,
-                    id: el.id,
-                    placeholder: el.placeholder
-                }))
+            if heading.count() == 0:
+                print("Sezione Book a Facility non trovata.")
+                sys.exit(2)
+
+            print("\n=== STRUTTURA DELLA SEZIONE ===")
+
+            structure = heading.evaluate("""
+                el => {
+                    const result = [];
+                    let current = el;
+
+                    for (let i = 0; i < 5 && current; i++) {
+                        result.push({
+                            level: i,
+                            tag: current.tagName,
+                            id: current.id || '',
+                            className: String(current.className || '').slice(0, 200),
+                            role: current.getAttribute('role') || '',
+                            controls: Array.from(
+                                current.querySelectorAll(
+                                    'button, a, [role="button"]'
+                                )
+                            ).map(item => ({
+                                tag: item.tagName,
+                                text: (item.innerText || '').trim().slice(0, 100),
+                                ariaLabel: item.getAttribute('aria-label') || '',
+                                href: item.getAttribute('href') || '',
+                                disabled: item.disabled || false
+                            })).slice(0, 30)
+                        });
+
+                        current = current.parentElement;
+                    }
+
+                    return result;
+                }
             """)
-            for field in fields:
-                print(field)
 
-            print("\n=== PULSANTI ===")
-            for button in page.locator("button:visible").all_inner_texts():
-                print(repr(button.strip()))
+            for item in structure:
+                print(item)
+
+            print("\n=== ELEMENTI ESATTI CON TESTO ULB ===")
+
+            ulb_elements = page.get_by_text("ULB", exact=True)
+
+            for i in range(ulb_elements.count()):
+                item = ulb_elements.nth(i)
+
+                info = item.evaluate("""
+                    el => {
+                        const parent = el.parentElement;
+                        return {
+                            tag: el.tagName,
+                            className: String(el.className || ''),
+                            parentTag: parent ? parent.tagName : '',
+                            parentClass: parent
+                                ? String(parent.className || '').slice(0, 200)
+                                : '',
+                            clickableAncestor: (() => {
+                                const c = el.closest(
+                                    'button, a, [role="button"]'
+                                );
+                                return c ? {
+                                    tag: c.tagName,
+                                    text: (c.innerText || '').trim().slice(0, 100),
+                                    href: c.getAttribute('href') || ''
+                                } : null;
+                            })()
+                        };
+                    }
+                """)
+
+                print(info)
 
         finally:
             browser.close()
