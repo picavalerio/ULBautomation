@@ -61,7 +61,7 @@ def main():
                     i,
                     "TEXT:", repr(b.inner_text()),
                     "ARIA:", repr(b.get_attribute("aria-label")),
-                    "HTML:", b.evaluate("(el) => el.outerHTML[:500]")
+                    "HTML:", b.evaluate("(el) => el.outerHTML.slice(0, 500)")
                 )
 
             print("\n=== CONFRONTO SELETTORI VOLLEYBALL ===")
